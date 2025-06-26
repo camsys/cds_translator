@@ -6,6 +6,104 @@ import os
 import tempfile
 from werkzeug.utils import secure_filename
 
+# GeminiAPIManager class built into the app
+class GeminiAPIManager:
+    def __init__(self, api_key=None):
+        """Initialize the API manager with your Gemini client"""
+        load_dotenv()  # Load environment variables
+        
+        # Use provided API key or get from environment
+        if api_key is None:
+            api_key = os.getenv("API_KEY")
+        
+        self.client = genai.Client(api_key=api_key)
+        self.model = "gemini-2.0-flash"  # Store model name for reuse
+    
+    def load_file_content(self, file_path):
+        """Load content from a text file"""
+        with open(file_path, 'r') as file:
+            return file.read()
+    
+    def upload_image(self, image_path):
+        """Upload an image file to Gemini"""
+        return self.client.files.upload(file=image_path)
+    
+    def generate_content_with_prompt(self, system_instruction_file="system_instructions1.txt", 
+                                   prompt_file="prompt1.txt", image_path=None):
+        """Make the first API call with system instructions, prompt, and image"""
+        
+        # Load the text files
+        system_instruction = self.load_file_content(system_instruction_file)
+        prompt = self.load_file_content(prompt_file)
+        
+        # Upload the image
+        uploaded_file = self.upload_image(image_path)
+        
+        # Make the API call
+        response = self.client.models.generate_content(
+            model=self.model,
+            config=types.GenerateContentConfig(
+                system_instruction=system_instruction
+            ),
+            contents=[uploaded_file, prompt],
+        )
+        
+        return response.text
+    
+    def generate_second_content(self, system_instruction_file="system_instructions2.txt", 
+                              prompt_file="prompt2.txt", image_path=None,
+                              vehicle_type=None, date=None, time=None):
+        """Make the second API call with system instructions2, dynamic prompt, and image"""
+        
+        # Load the text files
+        system_instruction = self.load_file_content(system_instruction_file)
+        prompt_template = self.load_file_content(prompt_file)
+        
+        # Replace placeholders with actual values
+        prompt = prompt_template.format(
+            vehicle_type=vehicle_type or "Not specified",
+            date=date or "Not specified", 
+            time=time or "Not specified"
+        )
+        
+        # Upload the image
+        uploaded_file = self.upload_image(image_path)
+        
+        # Make the API call with image and dynamic prompt
+        response = self.client.models.generate_content(
+            model=self.model,
+            config=types.GenerateContentConfig(
+                system_instruction=system_instruction
+            ),
+            contents=[uploaded_file, prompt],
+        )
+        
+        return response.text
+    
+    def run_both_calls(self, image_path, vehicle_type=None, date=None, time=None):
+        """Run both API calls in sequence and return both results"""
+
+        try:
+            first_result = self.generate_content_with_prompt(image_path=image_path)
+            second_result = self.generate_second_content(
+                image_path=image_path, 
+                vehicle_type=vehicle_type, 
+                date=date, 
+                time=time
+            )
+        
+            return {
+                "first_call_result": first_result,
+                "second_call_result": second_result
+            }
+        except Exception as e:
+            return {
+                "error": f"API call failed: {str(e)}",
+                "first_call_result": None,
+                "second_call_result": None
+            }
+
+# Flask app setup
 app = Flask(__name__)
 
 load_dotenv()
@@ -14,47 +112,9 @@ load_dotenv()
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'bmp', 'tiff'}
 
-# Initialize Gemini client
-client = genai.Client(api_key=os.getenv("API_KEY"))
-
-def load_si(file_path="system_instructions1.txt"):
-    with open(file_path, 'r') as file:
-        return file.read()
-
-def load_prompt(file_path="prompt1.txt"):
-    with open(file_path, 'r') as file:
-        return file.read()
-
 def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-si_data = load_si()
-prompt_data = load_prompt()
-
-def analyze_sign_image(image_path):
-    """
-    Your existing API logic wrapped in a function
-    """
-    try:
-        # Upload file to Gemini
-        my_file = client.files.upload(file=image_path)
-
-        # Generate content with your existing system instruction
-        response = client.models.generate_content(
-          model="gemini-2.0-flash",
-
-        config=types.GenerateContentConfig(
-              system_instruction=si_data
-              ),
-
-          contents=[my_file, prompt_data],
-        )
-        
-        return response.text
-        
-    except Exception as e:
-        return f"Error analyzing image: {str(e)}"
 
 @app.route('/')
 def home():
@@ -63,7 +123,7 @@ def home():
 
 @app.route('/analyze-sign', methods=['POST'])
 def analyze_sign():
-    """Handle image upload and analysis"""
+    """Handle image upload and analysis with both API calls"""
     try:
         # Check if image was uploaded
         if 'image' not in request.files:
@@ -83,16 +143,31 @@ def analyze_sign():
             file.save(temp_file.name)
             temp_path = temp_file.name
             
-        # Analyze the image using your existing function
-        result = analyze_sign_image(temp_path)
+        # Extract user input from the form
+        vehicle_type = request.form.get('vehicle_type', 'car')
+        date = request.form.get('date', '')
+        time = request.form.get('time', '')
+
+        # Create API manager and run both calls with user variables
+        api_manager = GeminiAPIManager()
+        results = api_manager.run_both_calls(temp_path, vehicle_type, date, time)
         
         # Clean up temporary file
         os.unlink(temp_path)
         
-        # Return the CDS analysis result
+        # Check if there was an error
+        if "error" in results:
+            return jsonify({
+                'success': False,
+                'error': results["error"],
+                'filename': filename
+            }), 500
+        
+        # Return both analysis results
         return jsonify({
             'success': True,
-            'analysis': result,
+            'first_analysis': results['first_call_result'],
+            'second_analysis': results['second_call_result'],
             'filename': filename
         })
         
@@ -104,4 +179,7 @@ def too_large(e):
     return jsonify({'error': 'File too large. Maximum size is 16MB.'}), 413
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    import os
+    port = int(os.environ.get('PORT', 8080))
+    app.run(host='0.0.0.0', port=port, debug=False)
+

@@ -5,6 +5,8 @@ const fileError = document.getElementById('file-error');
 const analyzeButton = document.getElementById('analyze-button');
 const resultDiv = document.getElementById('result');
 const resultText = document.getElementById('result-text');
+const canIParkHereSection = document.getElementById('can-i-park-here-section');
+const canIParkHereContent = document.getElementById('can-i-park-here-content');
 const cdsOutputSection = document.getElementById('cds-output-section');
 const cdsJsonElement = document.getElementById('cds-json');
 
@@ -66,31 +68,6 @@ function handleFileChange(event) {
     }
 }
 
-/*
-function handleFileChange(event) {
-    const file = event.target.files[0];
-
-    if (file) {
-        if (file.type.startsWith('image/')) {
-            fileError.style.display = 'none';
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                uploadedImage.src = e.target.result;
-                imagePreview.style.display = 'block';
-            }
-            reader.readAsDataURL(file);
-        } else {
-            fileError.textContent = 'Invalid file type. Please upload an image.';
-            fileError.style.display = 'block';
-            imagePreview.style.display = 'none';
-            fileInput.value = ''; // Clear the input
-        }
-    } else {
-        fileError.style.display = 'none';
-        imagePreview.style.display = 'none';
-    }
-}
-*/
 
 async function analyzeParkingRules() {
     const vehicleType = document.getElementById('vehicle-type').value;
@@ -112,6 +89,7 @@ async function analyzeParkingRules() {
     analyzeButton.disabled = true;
     analyzeButton.textContent = 'Analyzing...';
     resultDiv.style.display = 'none';
+    canIParkHereSection.style.display = 'none';
     cdsOutputSection.style.display = 'none';
 
     try {
@@ -135,43 +113,28 @@ async function analyzeParkingRules() {
         }
 
         if (data.success) {
-            // Display the real CDS analysis result
-            let resultMessage = `Analysis complete for uploaded image: ${data.filename}\n\n`;
-            resultMessage += `Vehicle Type: ${vehicleType}\n`;
-            resultMessage += `Date: ${date}\n`;
-            resultMessage += `Time: ${time}\n\n`;
-            resultMessage += `CDS Analysis Result:\n`;
-            
-            // Try to parse the CDS JSON to provide a user-friendly summary
+            // Handle the FIRST API response (CDS Output Section)
             try {
-                const cdsData = JSON.parse(data.analysis);
-                
-                // Extract useful info from CDS for user display
-                if (cdsData.rules && cdsData.rules.length > 0) {
-                    const rule = cdsData.rules[0]; // Use first rule for summary
-                    resultMessage += `Activity: ${rule.activity}\n`;
-                    
-                    if (rule.max_stay) {
-                        resultMessage += `Max Stay: ${rule.max_stay} ${rule.max_stay_unit || 'units'}\n`;
-                    }
-                    
-                    if (rule.user_classes && rule.user_classes.length > 0) {
-                        resultMessage += `Applies to: ${rule.user_classes.join(', ')}\n`;
-                    }
-                } else {
-                    resultMessage += "No specific parking rules detected in the sign.";
-                }
-                
-                // Display the raw CDS JSON
-                cdsJsonElement.textContent = JSON.stringify(cdsData, null, 2);
-                
+                // Try to parse the first response as JSON for pretty formatting
+                const firstResponseData = JSON.parse(data.first_analysis);
+                cdsJsonElement.textContent = JSON.stringify(firstResponseData, null, 2);
             } catch (parseError) {
-                // If CDS data isn't valid JSON, show the raw response
-                resultMessage += data.analysis;
-                cdsJsonElement.textContent = data.analysis;
+                // If it's not valid JSON, display as plain text
+                cdsJsonElement.textContent = data.first_analysis;
             }
 
+            // Handle the SECOND API response (Can I Park Here Section)
+            const parkingResultHtml = `
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <h4 class="font-semibold text-gray-800 mb-2">Parking Analysis Result:</h4>
+                    <div class="text-gray-700 whitespace-pre-wrap">${data.second_analysis}</div>
+                </div>
+            `;
+            canIParkHereContent.innerHTML = parkingResultHtml;
+
+            // Show both sections
             cdsOutputSection.style.display = 'block';
+            canIParkHereSection.style.display = 'block';
 
         } else {
             throw new Error('Analysis failed');
@@ -184,7 +147,8 @@ async function analyzeParkingRules() {
         // Hide result sections on error
         resultDiv.style.display = 'none';
         cdsOutputSection.style.display = 'none';
-        
+        canIParkHereSection.style.display = 'none';
+
     } finally {
         // Reset button state
         analyzeButton.disabled = false;

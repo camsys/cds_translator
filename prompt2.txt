@@ -1,0 +1,6 @@
+Analyze this parking sign for the following scenario:
+- Vehicle Type: {vehicle_type}
+- Date: {date}  
+- Time: {time}
+
+Based on these details and the sign regulations, provide a clear answer to whether a person can park there and when they must move their car, followed by an explanation of your assessment. 

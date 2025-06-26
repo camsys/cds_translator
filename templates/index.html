@@ -56,7 +56,8 @@
                     <div>
                         <label for="vehicle-type" class="block text-gray-700 text-sm font-bold mb-2">Vehicle Type</label>
                         <select id="vehicle-type" class="shadow appearance-none border rounded w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
-                            <option value="car">Car</option>
+                            <option value="car">Car with resident permit</option>
+                            <option value="car">Car without resident permit</option>
                             <option value="truck">Truck</option>
                             <option value="motorcycle">Motorcycle</option>
                             <option value="bus">Bus</option>
@@ -76,6 +77,19 @@
                     <div id="result" class="mt-6 p-4 bg-gray-50 rounded-md border border-gray-200 text-gray-700 font-medium" style="display: none;">
                         <h3 class="text-lg font-semibold mb-2">Result:</h3>
                         <p id="result-text"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- NEW: API Response Container -->
+        <div id="can-i-park-here-section" class="mt-8 p-6 bg-gradient-to-r from-green-50 to-blue-50 border-l-4 border-green-400 rounded-lg shadow-lg" style="display: none;">
+            <div class="flex items-start">
+                <i class="material-icons text-green-500 mr-3 mt-1">check_circle</i>
+                <div class="flex-1">
+                    <h2 class="text-xl font-semibold text-green-800 mb-3">Analysis Results</h2>
+                    <div id="can-i-park-here-content" class="text-gray-700">
+                        <!-- Don't park here!  There is street cleaning happening here until 1pm today. If you are a visitor, you will be able to park here between 1pm and before 6pm. However, if you have a resident parking permit, go ahead and park for as long as you want any time after 1pm. -->
                     </div>
                 </div>
             </div>
