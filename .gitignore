@@ -9,4 +9,7 @@ venv/
 .venv
 instance/
 .webassets-cache
-api_handler.py
+api_handler.py.DS_Store
+
+# Local test scripts
+local_test_scripts/
