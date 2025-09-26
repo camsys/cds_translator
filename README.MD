@@ -15,7 +15,7 @@ A Flask web application that analyzes parking sign images and provides parking g
 ### Local Development
 ```bash
 # Install dependencies
-pip install flask google-generativeai python-dotenv
+pip install flask google-generativeai python-dotenv google-genai
 
 # Set up environment
 echo "API_KEY=your_gemini_api_key" > .env
@@ -24,7 +24,7 @@ echo "API_KEY=your_gemini_api_key" > .env
 python3 app.py
 ```
 
-Visit `http://localhost:5000`
+Visit `http://localhost:8080`
 
 ### Docker
 ```bash
